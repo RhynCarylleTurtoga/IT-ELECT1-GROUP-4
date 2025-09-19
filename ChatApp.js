@@ -2,128 +2,215 @@ import React, { useState } from "react";
 import {
   SafeAreaView,
   View,
-  Text,
+  FlatList,
   TextInput,
   TouchableOpacity,
-  FlatList,
+  Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
+  StatusBar
 } from "react-native";
 
-export default function ChatApp() {
+// ChatBubble component that receives props
+const ChatApp = ({ text, isMe, timestamp }) => {
+  return (
+    <View style={[
+      styles.bubbleContainer,
+      isMe ? styles.myBubbleContainer : styles.theirBubbleContainer
+    ]}>
+      <View style={[
+        styles.bubble,
+        isMe ? styles.myBubble : styles.theirBubble
+      ]}>
+        <Text style={isMe ? styles.myText : styles.theirText}>{text}</Text>
+        <Text style={[
+          styles.timestamp,
+          isMe ? styles.myTimestamp : styles.theirTimestamp
+        ]}>
+          {timestamp}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// Main ChatScreen component
+const ChatScreen = ({ userName = "User", userAvatar = "👤" }) => {
   const [messages, setMessages] = useState([
-    { id: "1", text: "Hello! How can I help you?", sender: "bot" },
+    {
+      id: "1",
+      text: "Hi Rhyn",
+      sender: "them",
+      timestamp: "10:00 AM"
+    },
+    {
+      id: "2",
+      text: "Hello! How are you?",
+      sender: "me",
+      timestamp: "10:02 AM"
+    },
+    {
+      id: "3",
+      text: "I'm doing great! Thanks for asking. What about you?",
+      sender: "them",
+      timestamp: "10:03 AM"
+    }
   ]);
   const [input, setInput] = useState("");
 
   const sendMessage = () => {
-    if (input.trim() === "") return;
-
-    const newMessage = { id: Date.now().toString(), text: input, sender: "user" };
-    setMessages((prev) => [...prev, newMessage]);
-
-    // simple bot response (static)
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), text: "I received: " + input, sender: "bot" },
-      ]);
-    }, 1000);
-
+    if (input.trim().length === 0) return;
+    
+    const hours = new Date().getHours();
+    const minutes = new Date().getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHours = hours % 12 || 12;
+    
+    const newMessage = {
+      id: Date.now().toString(),
+      text: input,
+      sender: "me",
+      timestamp: `${formattedHours}:${minutes < 10 ? '0' + minutes : minutes} ${ampm}`
+    };
+    
+    setMessages([...messages, newMessage]);
     setInput("");
+    
+    // Simulate a reply after a short delay
+    setTimeout(() => {
+      const replyMessage = {
+        id: Date.now().toString(),
+        text: "Thanks for your message!",
+        sender: "them",
+        timestamp: `${formattedHours}:${minutes < 10 ? '0' + minutes : minutes} ${ampm}`
+      };
+      setMessages(prevMessages => [...prevMessages, replyMessage]);
+    }, 1000);
   };
-
-  const renderItem = ({ item }) => (
-    <View
-      style={[
-        styles.message,
-        item.sender === "user" ? styles.userMessage : styles.botMessage,
-      ]}
-    >
-      <Text style={styles.messageText}>{item.text}</Text>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <FlatList
-          data={messages}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          style={styles.chatContainer}
-        />
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type a message..."
-          />
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-            <Text style={styles.sendText}>Send</Text>
-          </TouchableOpacity>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.avatar}>{userAvatar}</Text>
+        <Text style={styles.userName}>{userName}</Text>
+        <View style={styles.status}>
+          <View style={styles.statusIndicator} />
+          <Text style={styles.statusText}>Online</Text>
         </View>
-      </KeyboardAvoidingView>
+      </View>
+
+      {/* Chat list */}
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ChatBubble 
+            text={item.text} 
+            isMe={item.sender === "me"} 
+            timestamp={item.timestamp}
+          />
+        )}
+        contentContainerStyle={styles.messagesContainer}
+      />
+
+      {/* Input box */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="Type a message..."
+          style={styles.input}
+          placeholderTextColor="#999"
+        />
+        <TouchableOpacity
+          onPress={sendMessage}
+          style={[styles.sendButton, input.length === 0 && styles.sendButtonDisabled]}
+          disabled={input.length === 0}
+        >
+          <Text style={styles.sendButtonText}>Send</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
+    backgroundColor: "#f5f5f5"
   },
-  chatContainer: {
-    flex: 1,
-    padding: 10,
-  },
-  message: {
-    padding: 10,
-    borderRadius: 10,
-    marginVertical: 5,
-    maxWidth: "80%",
-  },
-  userMessage: {
-    backgroundColor: "#4CAF50",
-    alignSelf: "flex-end",
-  },
-  botMessage: {
-    backgroundColor: "#2196F3",
-    alignSelf: "flex-start",
-  },
-  messageText: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  inputContainer: {
+  header: {
     flexDirection: "row",
-    padding: 10,
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0"
   },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 20,
-    paddingHorizontal: 15,
+  avatar: {
+    fontSize: 24,
+    marginRight: 12
   },
-  sendButton: {
-    marginLeft: 10,
-    backgroundColor: "#4CAF50",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  sendText: {
-    color: "#fff",
+  userName: {
+    fontSize: 18,
     fontWeight: "bold",
+    color: "#333"
   },
-});
+  status: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: "auto"
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#4CAF50",
+    marginRight: 6
+  },
+  statusText: {
+    color: "#666",
+    fontSize: 12
+  },
+  messagesContainer: {
+    padding: 16
+  },
+  bubbleContainer: {
+    marginBottom: 16,
+    flexDirection: "row"
+  },
+  myBubbleContainer: {
+    justifyContent: "flex-end"
+  },
+  theirBubbleContainer: {
+    justifyContent: "flex-start"
+  },
+  bubble: {
+    maxWidth: "80%",
+    padding: 12,
+    borderRadius: 18
+  },
+  myBubble: {
+    backgroundColor: "#0078fe",
+    borderBottomRightRadius: 4
+  },
+  theirBubble: {
+    backgroundColor: "#e5e5ea",
+    borderBottomLeftRadius: 4
+  },
+  myText: {
+    color: "white",
+    fontSize: 16
+  },
+  theirText: {
+    color: "black",
+    fontSize: 16
+  },
+  timestamp: {
+    fontSize: 10,
+    marginTop: 4,
+    opacity: 0.7
+  },
+  myTimes

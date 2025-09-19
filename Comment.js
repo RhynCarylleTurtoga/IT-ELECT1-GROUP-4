@@ -1,134 +1,136 @@
 import React, { useState } from "react";
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Keyboard,
 } from "react-native";
 
-export default function Comment() {
-  const [likes, setLikes] = useState(0);
-  const [comments, setComments] = useState([]);
-  const [text, setText] = useState("");
-  const handleLike = () => {
-    setLikes(likes + 1);
+const Comment = () => {
+  const [comments, setComments] = useState([
+    { id: "1", user: "arian", text: "chikaa alerttt" },
+    { id: "2", user: "carylle", text: "spilll" },
+  ]);
+
+  const [newComment, setNewComment] = useState("");
+  
+  const handleAddComment = () => {
+    if (newComment.trim() === "") return;
+
+    const comment = {
+      id: Date.now().toString(),
+      user: "rhyn",
+      text: newComment.trim(),
+    };
+
+    setComments([comment, ...comments]);
+    setNewComment("");
+    Keyboard.dismiss(); 
   };
 
-  const addComment = () => {
-    if (text.trim() !== "") {
-      setComments([...comments, { author: "rhyn", text }]);
-      setText("");
-    }
-  };
+  
+  const renderComment = ({ item }) => (
+    <View style={styles.commentBox}>
+      <Text style={styles.username}>{item.user}</Text>
+      <Text style={styles.comment}>{item.text}</Text>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Post Section */}
-      <View style={styles.post}>
-        <Text style={styles.postText}>
-          <Text style={styles.bold}>Arian</Text>: imissyouuu 
-        </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Comments</Text>
+      
+      <FlatList
+        data={comments}
+        renderItem={renderComment}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={<Text style={styles.noComments}>No comments yet.</Text>}
+      />
 
-        {/* Like and Comment Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity onPress={handleLike}>
-            <Text style={styles.button}>👍 Like ({likes})</Text>
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Text style={styles.button}>💬 Comment</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Comment Input */}
-        <View style={styles.addComment}>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Write a comment..." 
-            value={text} 
-            onChangeText={setText} 
-          />
-          <TouchableOpacity style={styles.postButton} onPress={addComment}>
-            <Text style={styles.postTextButton}>Post</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Comment List */}
-        <FlatList 
-          data={comments} 
-          keyExtractor={(item, index) => index.toString()} 
-          renderItem={({ item }) => (
-            <View style={styles.comment}>
-              <Text style={styles.commentAuthor}>{item.author}</Text>
-              <Text>{item.text}</Text>
-            </View>
-          )} 
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Write a comment..."
+          value={newComment}
+          onChangeText={(text) => setNewComment(text)}
         />
+        <TouchableOpacity style={styles.button} onPress={handleAddComment}>
+          <Text style={styles.buttonText}>send</Text>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
-}
+};
+
+export default CommentSection;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
-    padding: 20,
+    padding: 16,
+    backgroundColor: "#f9f9f9",
   },
-  post: {
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
+  },
+  commentBox: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    elevation: 3,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 2,
   },
-  postText: {
-    fontSize: 15,
-  },
-  bold: {
+  username: {
     fontWeight: "bold",
+    color: "#444",
+    marginBottom: 4,
   },
-  actions: {
+  comment: {
+    fontSize: 14,
+    color: "#555",
+  },
+  noComments: {
+    textAlign: "center",
+    color: "#888",
+    marginTop: 20,
+  },
+  inputContainer: {
     flexDirection: "row",
-    marginTop: 10,
-    gap: 20,
-  },
-  button: {
-    color: "#4267B2", 
-    fontWeight: "bold",
-  },
-  addComment: {
-    flexDirection: "row",
-    marginTop: 15,
-    alignItems: "center",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
+    paddingTop: 10,
   },
   input: {
     flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 8,
-    marginRight: 10,
+    marginRight: 8,
   },
-  postButton: {
-    backgroundColor: "#4CAF50",       
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+  button: {
+    backgroundColor: "#007BFF",
+    paddingHorizontal: 16,
     borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  postTextButton: {
+  buttonText: {
     color: "#fff",
     fontWeight: "bold",
-  },
-  comment: {
-    backgroundColor: "#f0f2f5",     
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 5,
-  },
-  commentAuthor: {
-    fontWeight: "bold",
-    marginBottom: 2,
   },
 });
