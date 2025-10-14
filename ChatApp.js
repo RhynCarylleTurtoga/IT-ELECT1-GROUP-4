@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
     opacity: 0.7
   },
-  myTimes
+  myTimes;
