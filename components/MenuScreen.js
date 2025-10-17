@@ -1,29 +1,30 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Picker } from "@react-native-picker/picker"; // make sure this package is installed
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 
-export default function MenuScreen({ onStart }) {
+export default function MenuScreen({ onStart, onLogout, onDashboard, onLeaderboard, currentUser }) {
   const [difficulty, setDifficulty] = useState("normal");
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>NUMBER RUSH</Text>
 
-      <Text style={styles.instructionTitle}>HOW TO PLAY</Text>
+      {currentUser ? <Text style={styles.welcome}>Welcome, {currentUser}</Text> : null}
+
+      <Text style={styles.instructionTitle}>How to Play:</Text>
       <Text style={styles.instructions}>
         Tap the numbers in ascending order before the timer runs out!
         {"\n"}Each level has less time and more numbers.
         {"\n"}Be careful—one wrong tap and it’s Game Over!
       </Text>
 
-      <Text style={styles.label}>SELECT DIFFICULTY</Text>
+      <Text style={styles.label}>Select Difficulty:</Text>
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={difficulty}
           onValueChange={(value) => setDifficulty(value)}
           style={styles.picker}
-          itemStyle={styles.pickerItem}
-          dropdownIconColor="#00FFAA"
+          itemStyle={{ fontSize: 18 }}
         >
           <Picker.Item label="Easy" value="easy" />
           <Picker.Item label="Normal" value="normal" />
@@ -31,15 +32,25 @@ export default function MenuScreen({ onStart }) {
         </Picker>
       </View>
 
-      <TouchableOpacity
-        style={styles.startButton}
-        onPress={() => onStart(difficulty)}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.startButtonText}>
-          START GAME ({difficulty.toUpperCase()})
-        </Text>
+      <TouchableOpacity style={styles.startBtn} onPress={() => onStart(difficulty)}>
+        <Text style={styles.startBtnText}>Start Game ({difficulty.toUpperCase()})</Text>
       </TouchableOpacity>
+
+      <View style={styles.row}>
+        <TouchableOpacity style={styles.navBtn} onPress={onDashboard}>
+          <Text style={styles.navText}>📊 Dashboard</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navBtn} onPress={onLeaderboard}>
+          <Text style={styles.navText}>🏆 Leaderboard</Text>
+        </TouchableOpacity>
+      </View>
+
+      {onLogout && (
+        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -56,61 +67,72 @@ const styles = StyleSheet.create({
     fontSize: 38,
     fontWeight: "bold",
     color: "#00FFAA",
-    marginBottom: 40,
-    textShadowColor: "rgba(0, 255, 170, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    marginBottom: 6,
+  },
+  welcome: {
+    color: "#FFD700",
+    marginBottom: 12,
+    fontSize: 16,
   },
   instructionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
     color: "white",
-    marginBottom: 10,
-    letterSpacing: 1,
+    marginBottom: 5,
   },
   instructions: {
     color: "#ccc",
     textAlign: "center",
-    marginBottom: 40,
-    lineHeight: 22,
-    fontSize: 16,
+    marginBottom: 20,
   },
   label: {
     color: "#fff",
-    marginBottom: 10,
-    fontSize: 16,
-    fontWeight: "bold",
-    letterSpacing: 1,
+    marginBottom: 5,
+    fontSize: 18,
   },
   pickerContainer: {
-    width: "80%",
-    height: 50,
-    backgroundColor: "#1A242D",
+    width: 200,
+    backgroundColor: "#fff",
     borderRadius: 8,
-    marginBottom: 40,
-    borderWidth: 1,
-    borderColor: "#00FFAA",
-    justifyContent: "center",
+    marginBottom: 20,
   },
   picker: {
     width: "100%",
     height: 50,
-    color: "#FFFFFF",
   },
-  pickerItem: {
-    color: "#FFFFFF",
-    fontSize: 20,
+  startBtn: {
+    backgroundColor: "#00FFA5",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    shadowColor: "#00FFA5",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
-  startButton: {
-    backgroundColor: "#00FFAA",
-    paddingVertical: 15,
-    paddingHorizontal: 40,
+  startBtnText: {
+    color: "#001",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  row: {
+    flexDirection: "row",
+    marginTop: 14,
+  },
+  navBtn: {
+    backgroundColor: "#222",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginHorizontal: 8,
+  },
+  navText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  logoutBtn: {
+    marginTop: 16,
+    padding: 10,
     borderRadius: 8,
   },
-  startButtonText: {
-    color: "#101820",
-    fontSize: 18,
-    fontWeight: "bold",
-    letterSpacing: 1,
-  },
+  logoutText: { color: "#ccc" },
 });
