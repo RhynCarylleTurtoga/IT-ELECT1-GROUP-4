@@ -28,8 +28,18 @@ export default function NumberGrid({
   const [nextTarget, setNextTarget] = useState(1);
   const [statusMap, setStatusMap] = useState({});
 
-  const gridWidth = Math.min(width - 60, 520);
-  const tileSize = Math.floor((gridWidth - (16 * (gridSize))) / gridSize) + 8;
+  // container width used by GameScreen gridWrap: keep consistent with that
+  const containerWidth = Math.min(width - 36, 520);
+
+  // gap between tiles (px). Tune this (smaller => larger tiles)
+  const gap = 12;
+
+  // compute cell size so gridSize tiles + gaps fit inside containerWidth
+  // totalGapWidth = gap * (gridSize - 1)
+  // availableForTiles = containerWidth - totalGapWidth
+  // cellSize = floor(availableForTiles / gridSize)
+  const totalGap = gap * (gridSize - 1);
+  const cellSize = Math.floor((containerWidth - totalGap) / gridSize);
 
   useEffect(() => {
     setCells(shuffledInitial);
@@ -58,15 +68,24 @@ export default function NumberGrid({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.grid, { width: gridWidth }]}>
-        {cells.map((v) => (
-          <NumberCell
+      <View style={[styles.grid, { width: containerWidth, marginHorizontal: 0 }]}>
+        {cells.map((v, i) => (
+          <View
             key={v}
-            value={v}
-            onPress={() => handlePress(v)}
-            status={statusMap[v] || (v < nextTarget ? 'correct' : 'idle')}
-            size={tileSize}
-          />
+            style={{
+              width: cellSize,
+              height: cellSize,
+              marginRight: (i % gridSize) === (gridSize - 1) ? 0 : gap,
+              marginBottom: gap,
+            }}
+          >
+            <NumberCell
+              value={v}
+              onPress={() => handlePress(v)}
+              status={statusMap[v] || (v < nextTarget ? 'correct' : 'idle')}
+              size={cellSize}
+            />
+          </View>
         ))}
       </View>
     </View>
@@ -75,5 +94,5 @@ export default function NumberGrid({
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' },
 });

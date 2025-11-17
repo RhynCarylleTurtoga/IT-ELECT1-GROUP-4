@@ -1,12 +1,23 @@
 // src/screens/Auth/RegisterScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { sha256 } from '../../utils/hash';
 import { createUser } from '../../db/database';
 import { Colors, Gradient } from '../../theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function RegisterScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -21,7 +32,9 @@ export default function RegisterScreen({ navigation }) {
     try {
       const passhash = await sha256(password);
       await createUser({ username: username.trim(), passhash });
-      Alert.alert('Success', 'Account created. Please login.', [{ text: 'OK', onPress: () => navigation.navigate('Login') }]);
+      Alert.alert('Success', 'Account created. Please login.', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') },
+      ]);
     } catch (e) {
       console.warn('register error', e);
       Alert.alert('Error', e?.message || 'Could not register.');
@@ -30,33 +43,146 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <LinearGradient colors={[Gradient.from, Gradient.to]} style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Number Rush</Text>
-        <Text style={styles.subtitle}>Create an account</Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Number Rush</Text>
+            <Text style={styles.subtitle}>Create your account</Text>
+          </View>
 
-      <View style={styles.card}>
-        <TextInput placeholder="Username" value={username} onChangeText={setUsername} style={styles.input} autoCapitalize="none" />
-        <TextInput placeholder="Password" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry />
-        <TextInput placeholder="Confirm password" value={confirm} onChangeText={setConfirm} style={styles.input} secureTextEntry />
-        <TouchableOpacity style={styles.primaryBtn} onPress={handleRegister}><Text style={styles.primaryText}>Create account</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Login')}><Text style={{ color: Colors.primary }}>Already have an account? Login</Text></TouchableOpacity>
-      </View>
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>Username</Text>
+            <TextInput
+              placeholder="Enter username"
+              value={username}
+              onChangeText={setUsername}
+              style={styles.input}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Password</Text>
+            <TextInput
+              placeholder="Enter password"
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+              secureTextEntry
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Confirm Password</Text>
+            <TextInput
+              placeholder="Re-enter password"
+              value={confirm}
+              onChangeText={setConfirm}
+              style={styles.input}
+              secureTextEntry
+            />
+
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={handleRegister}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryText}>Create Account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.link}
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.linkText}>
+                Already have an account?{' '}
+                <Text style={styles.linkAccent}>Login</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: 14 },
-  title: { fontSize: 36, fontWeight: '900', color: Colors.primary },
-  subtitle: { color: Colors.muted },
+  flex: { flex: 1 },
+  root: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: Math.max(24, height * 0.06),
+    paddingHorizontal: 20,
+  },
 
-  card: { width: Math.min(width - 40, 520), backgroundColor: Colors.card, borderRadius: 12, padding: 18, alignItems: 'center', elevation: 4 },
-  input: { backgroundColor: '#f9fbff', padding: 12, borderRadius: 10, marginTop: 10, width: '100%' },
+  header: {
+    alignItems: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 6,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 0.6,
+  },
+  subtitle: {
+    color: Colors.muted,
+    marginTop: 6,
+    fontSize: 14,
+  },
 
-  primaryBtn: { width: '100%', backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 12 },
-  primaryText: { color: '#fff', fontWeight: '800' },
+  card: {
+    width: Math.min(width - 40, 520),
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    padding: 18,
+    alignItems: 'stretch',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+  },
 
-  link: { marginTop: 12 }
+  inputLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  input: {
+    backgroundColor: '#f9fbff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 0,
+  },
+
+  primaryBtn: {
+    width: '100%',
+    backgroundColor: Colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  primaryText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+  link: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  linkText: { color: Colors.muted },
+  linkAccent: { color: Colors.primary, fontWeight: '700' },
 });

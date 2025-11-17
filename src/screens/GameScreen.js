@@ -1,12 +1,14 @@
 // src/screens/GameScreen.js
 import React, { useEffect, useRef, useState, useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import NumberGrid from '../components/NumberGrid';
 import { Colors, Gradient } from '../theme';
 import { useIsFocused } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { addHighscore } from '../db/database';
+
+const { width } = Dimensions.get('window');
 
 export default function GameScreen({ navigation, route }) {
   const { currentUser } = useContext(AuthContext);
@@ -18,6 +20,9 @@ export default function GameScreen({ navigation, route }) {
   const [running, setRunning] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [next, setNext] = useState(1);
+
+  // seed forces NumberGrid to remount (so tiles reshuffle/reset)
+  const [seed, setSeed] = useState(0);
 
   const intervalRef = useRef(null);
 
@@ -34,6 +39,9 @@ export default function GameScreen({ navigation, route }) {
   }, [running, isFocused]);
 
   function startNew() {
+    // bump seed to force NumberGrid to re-mount and reshuffle its tiles
+    setSeed(s => s + 1);
+
     setTimeCS(0);
     setMistakes(0);
     setNext(1);
@@ -51,7 +59,14 @@ export default function GameScreen({ navigation, route }) {
       const timeSec = (timeCS / 100).toFixed(2);
       Alert.alert('Well done!', `You finished in ${timeSec}s with ${mistakes} mistakes.`);
       try {
-        await addHighscore({ userId: currentUser?.id ?? null, player: currentUser?.username ?? 'Guest', time: parseFloat(timeSec), mistakes, mode, gridSize });
+        await addHighscore({
+          userId: currentUser?.id ?? null,
+          player: currentUser?.username ?? 'Guest',
+          time: parseFloat(timeSec),
+          mistakes,
+          mode,
+          gridSize
+        });
       } catch (e) { console.warn('save score err', e); }
     }
   }
@@ -62,81 +77,164 @@ export default function GameScreen({ navigation, route }) {
 
   function BackButton() {
     return (
-      <TouchableOpacity style={styles.back} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')}>
-        <Text style={styles.backText}>‹ Back</Text>
+      <TouchableOpacity style={localStyles.back} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')}>
+        <Text style={localStyles.backText}>‹ Back</Text>
       </TouchableOpacity>
     );
   }
 
   return (
-    <LinearGradient colors={[Gradient.from, Gradient.to]} style={styles.root}>
+    <LinearGradient colors={[Gradient.from, Gradient.to]} style={localStyles.root}>
       <BackButton />
-      <View style={styles.timerWrap}>
-        <Text style={styles.timer}>{timeDisplay}</Text>
+
+      <View style={localStyles.headerArea}>
+        <Text style={localStyles.timerLabel}>Time</Text>
+        <Text style={localStyles.timer}>{timeDisplay}</Text>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={{ marginBottom: 6 }}>Next: {next}</Text>
-        <Text>Time: {timeDisplay}</Text>
-        <Text>Mistakes: {mistakes}</Text>
+      <View style={localStyles.infoRow}>
+        <View style={localStyles.statCard}>
+          <Text style={localStyles.statLabel}>Next</Text>
+          <Text style={localStyles.statValue}>{next}</Text>
+        </View>
+
+        <View style={localStyles.statCard}>
+          <Text style={localStyles.statLabel}>Mistakes</Text>
+          <Text style={localStyles.statValue}>{mistakes}</Text>
+        </View>
+
+        <View style={localStyles.statCard}>
+          <Text style={localStyles.statLabel}>Mode</Text>
+          <Text style={localStyles.statValueSmall}>{mode}</Text>
+        </View>
       </View>
 
-      <NumberGrid
-        gridSize={gridSize}
-        onCorrect={(data) => handleCorrect(data)}
-        onMistake={() => handleMistake()}
-        disabled={!running}
-      />
+      <View style={localStyles.gridWrap}>
+        <NumberGrid
+          key={seed}                     // <- forces remount when seed changes
+          gridSize={gridSize}
+          onCorrect={(data) => handleCorrect(data)}
+          onMistake={() => handleMistake()}
+          disabled={!running}
+        />
+      </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.leftBtn} onPress={() => startNew()}>
-          <Text style={styles.btnText}>New</Text>
+      <View style={localStyles.actions}>
+        <TouchableOpacity style={[localStyles.actionBtn, localStyles.primaryBtn]} onPress={() => startNew()} activeOpacity={0.85}>
+          <Text style={localStyles.actionText}>New</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.rightBtn} onPress={() => navigation.navigate('Highscores')}>
-          <Text style={styles.btnText}>Leaderboard</Text>
+        <TouchableOpacity style={[localStyles.actionBtn, localStyles.secondaryBtn]} onPress={() => navigation.navigate('Highscores')} activeOpacity={0.85}>
+          <Text style={localStyles.actionText}>Leaderboard</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, paddingTop: 12, alignItems: 'center' },
-  back: { position: 'absolute', left: 12, top: 12, padding: 6 },
-  backText: { color: Colors.primary, fontWeight: '700' },
+const localStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    paddingTop: 12,
+    alignItems: 'center',
+  },
 
-  timerWrap: { marginTop: 34, alignItems: 'center', marginBottom: 10 },
-  timer: { fontSize: 36, fontWeight: '900', color: Colors.primary },
+  back: {
+    position: 'absolute',
+    left: 10,
+    top: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    zIndex: 20,
+  },
+  backText: { color: Colors.primary, fontWeight: '700', fontSize: 16 },
 
-  infoCard: {
-    width: '90%',
+  headerArea: {
+    marginTop: 34,
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  timerLabel: {
+    color: '#334155',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  timer: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 0.6,
+  },
+
+  infoRow: {
+    width: '92%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 12,
+  },
+
+  statCard: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 18,
-    elevation: 3,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginHorizontal: 6,
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+  },
+  statLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 6,
+  },
+  statValueSmall: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 6,
+  },
+
+  gridWrap: {
+    width: Math.min(width - 36, 520),
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
 
   actions: {
-    width: '90%',
+    width: '92%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 18,
+    marginVertical: 18,
   },
-  leftBtn: {
+  actionBtn: {
     flex: 0.48,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  primaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
   },
-  rightBtn: {
-    flex: 0.48,
-    backgroundColor: '#444',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
+  secondaryBtn: {
+    backgroundColor: '#374151',
   },
-  btnText: { color: '#fff', fontWeight: '800' },
+  actionText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
 });

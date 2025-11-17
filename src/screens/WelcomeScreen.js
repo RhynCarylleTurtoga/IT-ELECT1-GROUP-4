@@ -1,82 +1,141 @@
-
 // src/screens/WelcomeScreen.js
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import { Colors, Gradient } from '../theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen({ navigation }) {
   const { currentUser, logout } = useContext(AuthContext);
 
   return (
     <LinearGradient colors={[Gradient.from, Gradient.to]} style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Number Rush</Text>
-        <Text style={styles.subtitle}>Train speed, sharpen focus</Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.center}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          
+          {/* 🎯 MOVED HERE — The title and subtitle */}
+          <Text style={styles.title}>Number Rush</Text>
+          <Text style={styles.subtitle}>Train speed, sharpen focus</Text>
 
-      <View style={styles.card}>
-        {currentUser ? (
-          <>
-            <Text style={styles.welcome}>Welcome, <Text style={{ fontWeight: '900' }}>{currentUser.username}</Text>!</Text>
+          {currentUser ? (
+            <>
+              <Text style={styles.welcome}>
+                Welcome, <Text style={styles.username}>{currentUser.username}</Text>!
+              </Text>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Home')}>
-              <Text style={styles.primaryBtnText}>Go to Play</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => navigation.navigate('Home')}
+              >
+                <Text style={styles.primaryBtnText}>Go to Play</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.lightBtn} onPress={() => navigation.navigate('Highscores')}>
-              <Text style={styles.lightBtnText}>Leaderboard</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.lightBtn}
+                onPress={() => navigation.navigate('Highscores')}
+              >
+                <Text style={styles.lightBtnText}>Leaderboard</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.linkBtn} onPress={() => { logout(); }}>
-              <Text style={styles.linkText}>Logout</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.primaryBtnText}>Login</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.linkBtn}
+                onPress={logout}
+              >
+                <Text style={styles.linkText}>Logout</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => navigation.navigate('Login')}
+              >
+                <Text style={styles.primaryBtnText}>Login</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.lightBtn} onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.lightBtnText}>Register</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.lightBtn}
+                onPress={() => navigation.navigate('Register')}
+              >
+                <Text style={styles.lightBtnText}>Register</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('Home')}>
-              <Text style={styles.linkText}>Continue as Guest</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+              <TouchableOpacity
+                style={styles.linkBtn}
+                onPress={() => navigation.navigate('Home')}
+              >
+                <Text style={styles.linkText}>Continue as Guest</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.small}>Simple • Local • Fast</Text>
-      </View>
+        <Text style={styles.footer}>Simple • Local • Fast</Text>
+      </ScrollView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 32 },
-  header: { alignItems: 'center', marginTop: 10 },
-  title: { fontSize: 44, fontWeight: '900', color: Colors.primary },
-  subtitle: { marginTop: 6, color: Colors.muted },
+  root: {
+    flex: 1,
+  },
+
+  center: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 16,
+  },
 
   card: {
     width: Math.min(width - 40, 520),
     backgroundColor: Colors.card,
     borderRadius: 16,
-    padding: 22,
+    paddingVertical: 30,
+    paddingHorizontal: 22,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 6,
+    marginBottom: 26,
   },
-  welcome: { fontSize: 18, marginBottom: 12 },
+
+  title: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+
+  subtitle: {
+    marginTop: 4,
+    marginBottom: 20,
+    color: Colors.muted,
+  },
+
+  welcome: {
+    fontSize: 18,
+    marginBottom: 14,
+    color: '#0f172a',
+  },
+
+  username: {
+    fontWeight: '900',
+  },
 
   primaryBtn: {
     width: '100%',
@@ -84,9 +143,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+  primaryBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
 
   lightBtn: {
     width: '100%',
@@ -96,11 +160,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
-  lightBtnText: { color: Colors.primary, fontWeight: '700' },
+
+  lightBtnText: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
 
   linkBtn: { marginTop: 12 },
   linkText: { color: Colors.muted },
 
-  footer: { alignItems: 'center', marginBottom: 12 },
-  small: { color: '#9aa4b2' }
+  footer: {
+    marginTop: 10,
+    color: '#9aa4b2',
+  },
 });
