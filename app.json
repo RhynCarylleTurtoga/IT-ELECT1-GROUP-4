@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "myGame",
+    "name": "NumberRush Pro",
     "slug": "myGame",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.jessan.numberrush"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +29,11 @@
     "plugins": [
       "expo-sqlite",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0eef9504-7a9c-4376-b6d1-6ed3fbe00d67"
+      }
+    }
   }
 }
