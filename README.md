@@ -17,7 +17,8 @@ Number Rush is a fast-paced number-tapping game that trains speed and focus.
 
 ## 👥 Team Members
 - Rhyn Carryle Turtoga - Leader
-   Members :
+  
+## Members :
 - Jessan Orevillo
 - Mikyla Cajes
 - Eljohn Nudalo
