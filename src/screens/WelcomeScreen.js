@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import { Colors, Gradient } from '../theme';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen({ navigation }) {
   const { currentUser, logout } = useContext(AuthContext);
@@ -24,10 +24,33 @@ export default function WelcomeScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          
-          {/* 🎯 MOVED HERE — The title and subtitle */}
+          {/* Title and subtitle */}
           <Text style={styles.title}>Number Rush</Text>
           <Text style={styles.subtitle}>Train speed, sharpen focus</Text>
+
+          {/* NEW: About & Members buttons */}
+          <View
+            style={{
+              flexDirection: 'row',
+              width: '100%',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+            }}
+          >
+            <TouchableOpacity
+              style={[styles.lightBtn, { flex: 0.48 }]}
+              onPress={() => navigation.navigate('About')}
+            >
+              <Text style={styles.lightBtnText}>About</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.lightBtn, { flex: 0.48 }]}
+              onPress={() => navigation.navigate('Members')}
+            >
+              <Text style={styles.lightBtnText}>Members</Text>
+            </TouchableOpacity>
+          </View>
 
           {currentUser ? (
             <>
@@ -123,7 +146,7 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 12,
     color: Colors.muted,
   },
 
