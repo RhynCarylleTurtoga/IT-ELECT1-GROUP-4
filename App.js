@@ -13,6 +13,10 @@ import GameScreen from './src/screens/GameScreen';
 import UsersScreen from './src/screens/Admin/UsersScreen';
 import HighscoreScreen from './src/screens/HighscoreScreen';
 
+// NEW
+import AboutScreen from './src/screens/AboutScreen';
+import MembersScreen from './src/screens/MembersScreen';
+
 import styles from './src/ui/styles';
 
 const Stack = createNativeStackNavigator();
@@ -32,6 +36,10 @@ export default function App() {
             <Stack.Screen name="Game" component={GameScreen} />
             <Stack.Screen name="Highscores" component={HighscoreScreen} />
             <Stack.Screen name="Users" component={UsersScreen} />
+
+            {/* NEW screens */}
+            <Stack.Screen name="About" component={AboutScreen} />
+            <Stack.Screen name="Members" component={MembersScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaView>
