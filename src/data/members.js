@@ -18,13 +18,13 @@ export const MEMBERS = [
   },
   {
     id: 3,
-    name: 'Mikayla Cajes',
+    name: 'Mae kayla Cajes',
     role: 'Frontend Developer',
     image: require('../../assets/members/member3.jpeg'),
   },
   {
     id: 4,
-    name: 'Eljohn Nudalo',
+    name: 'Eljhon Nudalo',
     role: 'UI/UX Designer',
     image: require('../../assets/members/member4.jpeg'),
   },
@@ -60,7 +60,7 @@ export const MEMBERS = [
   },
   {
     id: 10,
-    name: 'Deither Paroginog',
+    name: 'Deither John Paroginog',
     role: 'Research',
     image: require('../../assets/members/member10.jpg'),
   },
