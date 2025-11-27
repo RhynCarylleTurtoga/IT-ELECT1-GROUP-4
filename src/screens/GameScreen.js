@@ -16,64 +16,166 @@ export default function GameScreen({ navigation, route }) {
 
   const { mode = 'classic', gridSize = 4, startTime = 25 } = route?.params || {};
 
+  // classic: timeCS counts up (centiseconds)
+  // timeattack: timeLeftCS counts down (centiseconds)
   const [timeCS, setTimeCS] = useState(0);
+  const [timeLeftCS, setTimeLeftCS] = useState(startTime * 100);
   const [running, setRunning] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [next, setNext] = useState(1);
-
-  // seed forces NumberGrid to remount (so tiles reshuffle/reset)
   const [seed, setSeed] = useState(0);
 
   const intervalRef = useRef(null);
+  const isTimeAttack = mode === 'timeattack';
 
+  // start/stop interval depending on running & focus
   useEffect(() => {
     if (running && isFocused) {
       intervalRef.current = setInterval(() => {
-        setTimeCS(prev => prev + 10);
+        if (isTimeAttack) {
+          // countdown for time attack
+          setTimeLeftCS(prev => {
+            const updated = prev - 10;
+            if (updated <= 0) {
+              // stop and handle time up
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+              handleTimeAttackTimeout();
+              return 0;
+            }
+            return updated;
+          });
+        } else {
+          // classic: count up
+          setTimeCS(prev => prev + 10);
+        }
       }, 100);
     } else {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    return () => { clearInterval(intervalRef.current); intervalRef.current = null; };
-  }, [running, isFocused]);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    };
+  }, [running, isFocused, isTimeAttack]);
+
+  // ensure timeLeftCS resets when route params change (or on new)
+  useEffect(() => {
+    setTimeLeftCS(startTime * 100);
+  }, [startTime, mode, seed]);
 
   function startNew() {
-    // bump seed to force NumberGrid to re-mount and reshuffle its tiles
+    // force NumberGrid remount to reshuffle tiles
     setSeed(s => s + 1);
 
-    setTimeCS(0);
     setMistakes(0);
     setNext(1);
+    if (isTimeAttack) {
+      setTimeLeftCS(startTime * 100);
+      setTimeCS(0);
+    } else {
+      setTimeCS(0);
+      setTimeLeftCS(startTime * 100); // keep for reference
+    }
     setRunning(true);
   }
 
   function stopRun() {
     setRunning(false);
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
   }
 
-  async function handleCorrect({ value, next: oldNext }) {
-    setNext(prev => prev + 1);
-    if (oldNext >= gridSize * gridSize) {
-      stopRun();
-      const timeSec = (timeCS / 100).toFixed(2);
-      Alert.alert('Well done!', `You finished in ${timeSec}s with ${mistakes} mistakes.`);
-      try {
-        await addHighscore({
-          userId: currentUser?.id ?? null,
-          player: currentUser?.username ?? 'Guest',
-          time: parseFloat(timeSec),
-          mistakes,
-          mode,
-          gridSize
-        });
-      } catch (e) { console.warn('save score err', e); }
+  function handleTimeAttackTimeout() {
+    stopRun();
+    Alert.alert("Time's up!", 'You ran out of time. Try again!');
+    // per your choice: no save on timeout
+  }
+
+  // compute elapsed seconds (rounded to 2 decimals)
+  function computeElapsedSeconds() {
+    if (isTimeAttack) {
+      // elapsed = startTime - (timeLeft)
+      const elapsedCS = startTime * 100 - (timeLeftCS || 0);
+      return parseFloat((elapsedCS / 100).toFixed(2));
+    }
+    return parseFloat((timeCS / 100).toFixed(2));
+  }
+
+  function clampFinalSecs(s) {
+    // don't allow less than 1.00s
+    if (s < 1) return 1;
+    return s;
+  }
+
+  async function finishGameAndSave() {
+    stopRun();
+
+    const baseSec = computeElapsedSeconds(); // base elapsed time (includes effect of penalties on timeattack)
+    // For classic we also applied +3s on mistake by increasing timeCS earlier (see handleMistake).
+    // For timeattack we applied -3s on mistake by reducing timeLeftCS earlier, so elapsed includes penalty.
+    let finalSec = baseSec;
+
+    // Clamp to minimum 1.00s
+    finalSec = clampFinalSecs(finalSec);
+
+    Alert.alert('Finished!', `Base Time: ${baseSec.toFixed(2)}s\nMistakes: ${mistakes}\nFinal Time: ${finalSec.toFixed(2)}s`);
+
+    try {
+      await addHighscore({
+        userId: currentUser?.id ?? null,
+        player: currentUser?.username ?? 'Guest',
+        time: finalSec,
+        mistakes,
+        mode,
+        gridSize,
+      });
+    } catch (e) {
+      console.warn('save score err', e);
     }
   }
 
-  function handleMistake() { setMistakes(m => m + 1); }
+  // NumberGrid onCorrect callback
+  function handleCorrect({ value, next: oldNext }) {
+    const totalNeeded = gridSize * gridSize;
+    setNext(prev => prev + 1);
 
-  const timeDisplay = `${(timeCS / 100).toFixed(2)}s`;
+    if (oldNext >= totalNeeded) {
+      // player finished
+      finishGameAndSave();
+    }
+  }
+
+  // NumberGrid onMistake callback
+  function handleMistake() {
+    setMistakes(m => m + 1);
+
+    if (isTimeAttack) {
+      // subtract 3 seconds from remaining immediately
+      setTimeLeftCS(prev => {
+        const updated = prev - 300;
+        if (updated <= 0) {
+          // if penalty kills the timer, trigger timeout
+          // set to 0 then handle timeout
+          setTimeout(() => {
+            // ensure interval cleared and game over handled
+            handleTimeAttackTimeout();
+          }, 0);
+          return 0;
+        }
+        return updated;
+      });
+    } else {
+      // Classic: add 3 seconds immediately to elapsed
+      setTimeCS(prev => prev + 300);
+    }
+  }
+
+  const timeDisplay = isTimeAttack
+    ? `${(timeLeftCS / 100).toFixed(2)}s`
+    : `${(timeCS / 100).toFixed(2)}s`;
 
   function BackButton() {
     return (
@@ -88,7 +190,7 @@ export default function GameScreen({ navigation, route }) {
       <BackButton />
 
       <View style={localStyles.headerArea}>
-        <Text style={localStyles.timerLabel}>Time</Text>
+        <Text style={localStyles.timerLabel}>{isTimeAttack ? 'Time Left' : 'Time'}</Text>
         <Text style={localStyles.timer}>{timeDisplay}</Text>
       </View>
 
@@ -111,7 +213,7 @@ export default function GameScreen({ navigation, route }) {
 
       <View style={localStyles.gridWrap}>
         <NumberGrid
-          key={seed}                     // <- forces remount when seed changes
+          key={seed}
           gridSize={gridSize}
           onCorrect={(data) => handleCorrect(data)}
           onMistake={() => handleMistake()}

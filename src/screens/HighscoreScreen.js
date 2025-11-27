@@ -29,21 +29,20 @@ export default function HighscoresScreen() {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // UI state
   const [modeFilter, setModeFilter] = useState('all');
   const [gridFilter, setGridFilter] = useState('all');
   const [sortKey, setSortKey] = useState('time');
   const [query, setQuery] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState({}); // for collapse per group
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   const { currentUser } = useContext(AuthContext);
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
         setLoading(true);
-        // increase limit so we can filter client-side
         const s = await getHighscores({ limit: 500 });
         if (!mounted) return;
         setScores(s || []);
@@ -54,40 +53,36 @@ export default function HighscoresScreen() {
         if (mounted) setLoading(false);
       }
     })();
+
     return () => { mounted = false; };
   }, []);
 
-  // helper: apply filters
+  // FILTERING + SORTING
   const filtered = useMemo(() => {
-    let list = Array.isArray(scores) ? scores.slice() : [];
+    let list = scores.slice();
 
-    // mode filter
     if (modeFilter !== 'all') {
-      list = list.filter((r) => String(r.mode || '').toLowerCase() === String(modeFilter).toLowerCase());
+      list = list.filter((r) => (r.mode || '').toLowerCase() === modeFilter);
     }
 
-    // grid size filter
     if (gridFilter !== 'all') {
-      const n = Number(gridFilter);
-      list = list.filter((r) => Number(r.gridSize) === n);
+      list = list.filter((r) => Number(r.gridSize) === Number(gridFilter));
     }
 
-    // search by player substring
-    if (query && query.trim()) {
+    if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((r) => (r.player || '').toLowerCase().includes(q));
     }
 
-    // sorting
+    // Sorting inside each group (global first, then per group)
     if (sortKey === 'time') {
-      list.sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
+      list.sort((a, b) => (a.time || 0) - (b.time || 0));
     } else if (sortKey === 'mistakes') {
-      list.sort((a, b) => (Number(a.mistakes) || 0) - (Number(b.mistakes) || 0));
+      list.sort((a, b) => (a.mistakes || 0) - (b.mistakes || 0));
     } else if (sortKey === 'recent') {
-      // assume there is a created_at or id; fallback to id desc if no created_at
       list.sort((a, b) => {
-        const ta = a.created_at ? new Date(a.created_at).getTime() : (a.id || 0);
-        const tb = b.created_at ? new Date(b.created_at).getTime() : (b.id || 0);
+        const ta = a.created_at ? new Date(a.created_at).getTime() : a.id;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : b.id;
         return tb - ta;
       });
     }
@@ -95,59 +90,55 @@ export default function HighscoresScreen() {
     return list;
   }, [scores, modeFilter, gridFilter, query, sortKey]);
 
-  // medals for current filtered list (top3)
-  const topMedals = useMemo(() => {
-    return filtered.slice(0, 3).map((s, i) => ({ id: s.id, medal: i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉' }));
-  }, [filtered]);
-
-  // group by mode and gridSize for sections
+  // GROUPING (mode + grid)
   const grouped = useMemo(() => {
-    const map = {};
-    for (const r of filtered) {
-      const mode = r.mode || 'classic';
-      const grid = r.gridSize || '4';
+    const groups = {};
+
+    for (const s of filtered) {
+      const mode = s.mode || 'classic';
+      const grid = s.gridSize || 4;
       const key = `${mode}::${grid}`;
-      if (!map[key]) map[key] = { mode, grid, items: [] };
-      map[key].items.push(r);
+      if (!groups[key]) groups[key] = { mode, grid, items: [] };
+      groups[key].items.push(s);
     }
-    // create array sorted by mode then grid (classic first)
-    const arr = Object.keys(map).map(k => ({ key: k, ...map[k] }));
-    arr.sort((a, b) => {
-      if (a.mode === b.mode) return Number(a.grid) - Number(b.grid);
-      if (a.mode === 'classic') return -1;
-      if (b.mode === 'classic') return 1;
-      return a.mode.localeCompare(b.mode);
-    });
-    return arr;
+
+    return Object.keys(groups)
+      .map(k => ({ key: k, ...groups[k] }))
+      .sort((a, b) => {
+        if (a.mode === b.mode) return a.grid - b.grid;
+        return a.mode.localeCompare(b.mode);
+      });
   }, [filtered]);
 
-  // user's best score (lowest time) across all scores
+  // USER'S BEST
   const userBest = useMemo(() => {
     if (!currentUser) return null;
-    const mine = scores.filter(s => s.userId && String(s.userId) === String(currentUser.id));
+    const mine = scores.filter(s => String(s.userId) === String(currentUser.id));
     if (mine.length === 0) return null;
-    mine.sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
+    mine.sort((a, b) => (a.time || 0) - (b.time || 0));
     return mine[0];
   }, [scores, currentUser]);
 
+  // COLLAPSE/EXPAND
   function toggleGroup(key) {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
-  function renderRow({ item, index }) {
-    // index is per-group index; compute overallRank by finding index in filtered
-    const overallIndex = filtered.findIndex(s => s.id === item.id);
-    const rank = overallIndex >= 0 ? overallIndex + 1 : index + 1;
+  // RENDER EACH SCORE ROW (ranking per group)
+  function renderRow({ item, index, groupItems }) {
+    const rank = index + 1;
+    const medal = rank === 1 ? '🥇'
+                : rank === 2 ? '🥈'
+                : rank === 3 ? '🥉'
+                : null;
 
-    const medalObj = topMedals.find(m => m.id === item.id);
-    const medal = medalObj ? medalObj.medal : null;
     const isMine = currentUser && String(item.userId) === String(currentUser.id);
 
     return (
       <View style={[styles.row, isMine && styles.rowMine]}>
         <View style={styles.rankWrap}>
           <Text style={styles.rankText}>{rank}</Text>
-          {medal ? <Text style={styles.medal}>{medal}</Text> : null}
+          {medal && <Text style={styles.medal}>{medal}</Text>}
         </View>
 
         <View style={styles.body}>
@@ -155,7 +146,7 @@ export default function HighscoresScreen() {
             {item.player || 'Guest'}
           </Text>
           <Text style={styles.meta}>
-            {((item.time || 0)).toFixed(2)}s • mistakes {item.mistakes} • {item.mode} • {item.gridSize}×{item.gridSize}
+            {item.time.toFixed(2)}s • mistakes {item.mistakes} • {item.mode} • {item.gridSize}×{item.gridSize}
           </Text>
         </View>
 
@@ -168,7 +159,7 @@ export default function HighscoresScreen() {
     );
   }
 
-  // header controls
+  // HEADER UI
   function ControlsBar() {
     return (
       <View style={styles.controls}>
@@ -182,7 +173,7 @@ export default function HighscoresScreen() {
                 onPress={() => setModeFilter(m)}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {m === 'all' ? 'All' : (m === 'classic' ? 'Classic' : 'Time Attack')}
+                  {m === 'all' ? 'All' : m === 'classic' ? 'Classic' : 'Time Attack'}
                 </Text>
               </TouchableOpacity>
             );
@@ -212,7 +203,6 @@ export default function HighscoresScreen() {
             value={query}
             onChangeText={setQuery}
             style={styles.search}
-            returnKeyType="search"
           />
 
           <View style={styles.sortRow}>
@@ -249,37 +239,43 @@ export default function HighscoresScreen() {
           <>
             <View style={styles.summary}>
               <Text style={styles.summaryText}>Showing {filtered.length} results</Text>
-              {currentUser && userBest ? (
-                <Text style={styles.youBest}>Your best: {userBest.time.toFixed(2)}s ({userBest.mode} {userBest.gridSize}×{userBest.gridSize})</Text>
-              ) : currentUser ? (
-                <Text style={styles.youBest}>You have no recorded score yet.</Text>
-              ) : null}
+              {currentUser && userBest && (
+                <Text style={styles.youBest}>
+                  Your best: {userBest.time.toFixed(2)}s ({userBest.mode} {userBest.gridSize}×{userBest.gridSize})
+                </Text>
+              )}
             </View>
 
-            {/* grouped sections */}
             <FlatList
               data={grouped}
               keyExtractor={(g) => g.key}
               contentContainerStyle={styles.listContent}
               renderItem={({ item: group }) => {
-                const title = `${group.mode} • ${group.grid}×${group.grid}`;
-                const isExpanded = expandedGroups[group.key] !== false; // default true
+                const isExpanded = expandedGroups[group.key] !== false;
+
                 return (
                   <View style={styles.group}>
-                    <TouchableOpacity style={styles.groupHeader} onPress={() => toggleGroup(group.key)}>
-                      <Text style={styles.groupTitle}>{title}</Text>
+                    <TouchableOpacity
+                      style={styles.groupHeader}
+                      onPress={() => toggleGroup(group.key)}
+                    >
+                      <Text style={styles.groupTitle}>
+                        {group.mode} • {group.grid}×{group.grid}
+                      </Text>
                       <Text style={styles.groupCount}>{group.items.length}</Text>
                     </TouchableOpacity>
 
-                    {isExpanded ? (
+                    {isExpanded && (
                       <FlatList
                         data={group.items}
                         keyExtractor={(i) => String(i.id)}
-                        renderItem={renderRow}
+                        renderItem={({ item, index }) =>
+                          renderRow({ item, index, groupItems: group.items })
+                        }
                         ItemSeparatorComponent={() => <View style={styles.sep} />}
-                        scrollEnabled={false} // inner list won't scroll independently
+                        scrollEnabled={false}
                       />
-                    ) : null}
+                    )}
                   </View>
                 );
               }}
@@ -298,7 +294,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 12 },
 
   controls: { marginBottom: 8 },
-  filterRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap' },
 
   chip: {
     paddingVertical: 8,
@@ -308,16 +304,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 6,
   },
-  chipActive: {
-    backgroundColor: Colors.primary,
-  },
-  chipText: {
-    color: '#111827',
-    fontWeight: '700',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
+  chipActive: { backgroundColor: Colors.primary },
+  chipText: { color: '#111827', fontWeight: '700' },
+  chipTextActive: { color: '#fff' },
 
   chipSmall: {
     paddingVertical: 6,
@@ -340,7 +329,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
 
-  sortRow: { flexDirection: 'row', alignItems: 'center' },
+  sortRow: { flexDirection: 'row' },
   sortBtn: {
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -368,29 +357,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
   groupTitle: { fontWeight: '800', textTransform: 'capitalize' },
   groupCount: { color: Colors.muted },
 
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: 'transparent',
   },
-  rowMine: {
-    backgroundColor: 'rgba(13,110,253,0.06)',
-    borderRadius: 10,
-  },
+  rowMine: { backgroundColor: 'rgba(13,110,253,0.06)', borderRadius: 10 },
 
   rankWrap: { width: 56, alignItems: 'center' },
-  rankText: { fontWeight: '800', fontSize: 16, color: '#0f172a' },
-  medal: { fontSize: 18, marginTop: 6 },
+  rankText: { fontWeight: '800', fontSize: 16 },
+  medal: { fontSize: 20, marginTop: 4 },
 
   body: { flex: 1, paddingHorizontal: 8 },
-  player: { fontWeight: '800', fontSize: 15, color: '#0f172a' },
+  player: { fontWeight: '800', fontSize: 15 },
   playerMine: { color: Colors.primary },
   meta: { marginTop: 4, color: Colors.muted, fontSize: 12 },
 
@@ -398,5 +381,4 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12, color: Colors.muted },
 
   sep: { height: 8 },
-
 });

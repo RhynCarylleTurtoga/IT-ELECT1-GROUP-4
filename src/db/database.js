@@ -22,9 +22,9 @@ const AS_USERS = '@nr_users_v1';
 const AS_SCORES = '@nr_scores_v1';
 const AS_HISTORY = '@nr_history_v1';
 
-let memUsers = []; // {id, username, passhash, isLoggedIn, created_at, last_login}
-let memScores = []; // {id, userId, player, time, mistakes, mode, gridSize, date}
-let memHistory = []; // {id, userId, ts, username}
+let memUsers = []; 
+let memScores = []; 
+let memHistory = [];
 
 let memUserId = 1;
 let memScoreId = 1;
@@ -44,7 +44,6 @@ async function loadFallbackFromStorage() {
     memScores = sRaw ? JSON.parse(sRaw) : [];
     memHistory = hRaw ? JSON.parse(hRaw) : [];
 
-    // set next ids
     memUserId = memUsers.length ? Math.max(...memUsers.map(x => x.id)) + 1 : 1;
     memScoreId = memScores.length ? Math.max(...memScores.map(x => x.id)) + 1 : 1;
     memHistoryId = memHistory.length ? Math.max(...memHistory.map(x => x.id)) + 1 : 1;
@@ -111,7 +110,6 @@ export async function initDatabase() {
         (err) => {
           console.warn('SQLite init error → switching to fallback', err);
           nativeAvailable = false;
-          // fallthrough to AsyncStorage init
           (async () => { await loadFallbackFromStorage(); resolve(false); })();
         },
         () => resolve(true)
@@ -119,14 +117,13 @@ export async function initDatabase() {
     });
   }
 
-  // fallback: load persisted arrays from AsyncStorage
   await loadFallbackFromStorage();
   console.warn('Using AsyncStorage-backed fallback for DB (persistent across restarts).');
   return true;
 }
 
 /* -------------------------
-   createUser (no auto-login)
+   createUser
    ------------------------- */
 export function createUser({ username, passhash }) {
   const createdAt = new Date().toISOString();
@@ -153,9 +150,7 @@ export function createUser({ username, passhash }) {
 }
 
 /* -------------------------
-   authenticateUser({username, passhash, remember = true})
-   - records login_history, updates last_login
-   - sets isLoggedIn only if remember == true
+   authenticateUser
    ------------------------- */
 export function authenticateUser({ username, passhash, remember = true }) {
   const now = new Date().toISOString();
@@ -170,9 +165,7 @@ export function authenticateUser({ username, passhash, remember = true }) {
     if (remember) {
       memUsers.forEach(u => u.isLoggedIn = 0);
       user.isLoggedIn = 1;
-    } else {
-      user.isLoggedIn = 0;
-    }
+    } else user.isLoggedIn = 0;
 
     return saveFallbackToStorage().then(() => ({ id: user.id, username: user.username }));
   }
@@ -234,16 +227,22 @@ export function logoutAllUsers() {
   }
   return new Promise((resolve, reject) => {
     db.transaction((tx) => {
-      tx.executeSql(`UPDATE users SET isLoggedIn = 0;`, [], () => resolve(true), (_, err) => reject(err));
+      tx.executeSql(
+        `UPDATE users SET isLoggedIn = 0;`,
+        [],
+        () => resolve(true),
+        (_, err) => reject(err)
+      );
     });
   });
 }
 
 /* -------------------------
-   addHighscore/getHighscores/clearHighscores
+   addHighscore
    ------------------------- */
 export function addHighscore({ userId = null, player = 'Guest', time = 0, mistakes = 0, mode = 'classic', gridSize = 4 }) {
   const date = new Date().toISOString();
+
   if (!nativeAvailable) {
     const rec = { id: memScoreId++, userId, player, time, mistakes, mode, gridSize, date };
     memScores.push(rec);
@@ -253,7 +252,8 @@ export function addHighscore({ userId = null, player = 'Guest', time = 0, mistak
   return new Promise((resolve, reject) => {
     db.transaction((tx) => {
       tx.executeSql(
-        `INSERT INTO highscores (userId, player, time, mistakes, mode, gridSize, date) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO highscores (userId, player, time, mistakes, mode, gridSize, date) 
+         VALUES (?, ?, ?, ?, ?, ?, ?);`,
         [userId, player, time, mistakes, mode, gridSize, date],
         (_, result) => resolve(result),
         (_, err) => { reject(err); return false; }
@@ -262,68 +262,108 @@ export function addHighscore({ userId = null, player = 'Guest', time = 0, mistak
   });
 }
 
-export function getHighscores({ limit = 20, userId = null, gridSize = null } = {}) {
+/* ----------------------------------------------------------
+   UPDATED getHighscores() — FASTEST TIME ALWAYS WINS
+   ---------------------------------------------------------- */
+export function getHighscores({ limit = 20, userId = null, gridSize = null, mode = null } = {}) {
   if (!nativeAvailable) {
     let rows = memScores.slice();
+
     if (userId) rows = rows.filter(r => r.userId === userId);
     if (gridSize) rows = rows.filter(r => r.gridSize === gridSize);
-    rows.sort((a,b) => (a.time !== b.time ? a.time - b.time : a.mistakes - b.mistakes));
+    if (mode) rows = rows.filter(r => r.mode === mode);
+
+    rows.sort((a, b) => {
+      const ta = Number(a.time) || 0;
+      const tb = Number(b.time) || 0;
+      if (ta !== tb) return ta - tb; // FASTEST time first
+      return (Number(a.mistakes) || 0) - (Number(b.mistakes) || 0);
+    });
+
     return Promise.resolve(rows.slice(0, limit));
   }
 
   return new Promise((resolve, reject) => {
     db.transaction((tx) => {
-      let sql = `SELECT h.*, u.username FROM highscores h LEFT JOIN users u ON h.userId = u.id`;
+      let sql = `SELECT h.*, u.username
+                 FROM highscores h
+                 LEFT JOIN users u ON h.userId = u.id`;
+
       const params = [];
       const clauses = [];
+
       if (userId) { clauses.push(`h.userId = ?`); params.push(userId); }
       if (gridSize) { clauses.push(`h.gridSize = ?`); params.push(gridSize); }
-      if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ');
-      sql += ' ORDER BY h.time ASC, h.mistakes ASC LIMIT ?;'; params.push(limit);
-      tx.executeSql(sql, params, (_, { rows }) => resolve(rows._array), (_, err) => { reject(err); return false; });
-    });
-  });
-}
+      if (mode) { clauses.push(`h.mode = ?`); params.push(mode); }
 
-export function clearHighscores() {
-  if (!nativeAvailable) {
-    memScores.length = 0;
-    return saveFallbackToStorage().then(() => true);
-  }
-  return new Promise((resolve, reject) => {
-    db.transaction((tx) => {
-      tx.executeSql(`DELETE FROM highscores;`, [], () => resolve(true), (_, err) => reject(err));
+      if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ');
+
+      sql += ' ORDER BY h.time ASC, h.mistakes ASC LIMIT ?;';
+      params.push(limit);
+
+      tx.executeSql(
+        sql,
+        params,
+        (_, { rows }) => resolve(rows._array),
+        (_, err) => { reject(err); return false; }
+      );
     });
   });
 }
 
 /* -------------------------
-   getAllUsers/getLoginHistory
+   getAllUsers
    ------------------------- */
 export function getAllUsers() {
   if (!nativeAvailable) {
-    return Promise.resolve(memUsers.map(u => ({ id: u.id, username: u.username, created_at: u.created_at, last_login: u.last_login })));
+    return Promise.resolve(memUsers.map(u => ({
+      id: u.id,
+      username: u.username,
+      created_at: u.created_at,
+      last_login: u.last_login
+    })));
   }
+
   return new Promise((resolve, reject) => {
     db.transaction((tx) => {
-      tx.executeSql(`SELECT id, username, created_at, last_login FROM users ORDER BY id ASC;`, [], (_, { rows }) => resolve(rows._array), (_, err) => reject(err));
+      tx.executeSql(
+        `SELECT id, username, created_at, last_login FROM users ORDER BY id ASC;`,
+        [],
+        (_, { rows }) => resolve(rows._array),
+        (_, err) => reject(err)
+      );
     });
   });
 }
 
+/* -------------------------
+   getLoginHistory
+   ------------------------- */
 export function getLoginHistory({ limit = 100, userId = null } = {}) {
   if (!nativeAvailable) {
     let rows = memHistory.slice().reverse();
     if (userId) rows = rows.filter(r => r.userId === userId);
     return Promise.resolve(rows.slice(0, limit));
   }
+
   return new Promise((resolve, reject) => {
-    let sql = `SELECT l.id, l.userId, l.ts, u.username FROM login_history l LEFT JOIN users u ON l.userId = u.id`;
+    let sql = `SELECT l.id, l.userId, l.ts, u.username 
+               FROM login_history l 
+               LEFT JOIN users u ON l.userId = u.id`;
+
     const params = [];
     if (userId) { sql += ' WHERE l.userId = ?'; params.push(userId); }
-    sql += ' ORDER BY l.ts DESC LIMIT ?;'; params.push(limit);
+
+    sql += ' ORDER BY l.ts DESC LIMIT ?;';
+    params.push(limit);
+
     db.transaction((tx) => {
-      tx.executeSql(sql, params, (_, { rows }) => resolve(rows._array), (_, err) => reject(err));
+      tx.executeSql(
+        sql,
+        params,
+        (_, { rows }) => resolve(rows._array),
+        (_, err) => reject(err)
+      );
     });
   });
 }
